@@ -86,3 +86,114 @@ Logs, métricas e rastreamento de erros são centralizados para facilitar diagn�
 O CWRents foi projetado para ser pragmático: simples o suficiente para um time pequeno manter, mas estruturado o bastante para crescer de forma organizada.
 
 A arquitetura evita complexidade desnecessária, mantendo foco em desacoplamento, baixo custo e facilidade de evolução tecnológica.
+
+---
+
+# Fluxo Geral da Arquitetura
+
+```mermaid
+flowchart LR
+
+    %% ───────────────── Pessoas ─────────────────
+    Cliente["👤 Cliente"]
+    Operador["👨‍💼 Operador da Matriz"]
+
+    %% ───────────────── Sistema Principal ─────────────────
+    subgraph CWRents["🚗 CWRents — Monolito Modular"]
+
+        %% Public
+        subgraph Public["Camada Public"]
+            AluguelPublic["Aluguel Public"]
+            PagamentoPublic["Pagamento Public"]
+            CadastroPublic["Cadastro Public"]
+            MatrizPublic["Matriz Public"]
+        end
+
+        %% Domain
+        subgraph Domain["Camada Domain"]
+            AluguelDomain["Aluguel Domain"]
+            PagamentoDomain["Pagamento Domain"]
+            CadastroDomain["Cadastro Domain"]
+            MatrizDomain["Matriz Domain"]
+        end
+
+        %% Infra
+        subgraph Infra["Camada Infra"]
+            AluguelInfra["Aluguel Infra"]
+            PagamentoInfra["Pagamento Infra"]
+            CadastroInfra["Cadastro Infra"]
+            MatrizInfra["Matriz Infra"]
+        end
+    end
+
+    %% ───────────────── Infraestrutura ─────────────────
+    RabbitMQ["🐇 RabbitMQ"]
+    Redis["⚡ Redis"]
+    PostgreSQL["🐘 PostgreSQL"]
+
+    %% ───────────────── Workers ─────────────────
+    WorkerFiscal["📄 Worker Fiscal"]
+    WorkerNotificacao["📨 Worker Notificações"]
+
+    %% ───────────────── Sistemas Externos ─────────────────
+    Gateway["💳 Gateway Pagamento"]
+    Emissor["🧾 Emissor NF-e"]
+    Email["✉️ Provedor E-mail"]
+    WhatsApp["📱 Provedor WhatsApp"]
+
+    %% ───────────────── Observabilidade ─────────────────
+    Observabilidade["📊 Observabilidade\nSentry + Prometheus + Grafana + Graylog"]
+
+    %% ───────────────── Fluxos Usuário ─────────────────
+    Cliente -->|HTTPS/REST| AluguelPublic
+    Operador -->|HTTPS/REST| MatrizPublic
+
+    %% ───────────────── Fluxos Internos ─────────────────
+    AluguelPublic --> AluguelDomain
+    AluguelDomain --> AluguelInfra
+
+    PagamentoPublic --> PagamentoDomain
+    PagamentoDomain --> PagamentoInfra
+
+    CadastroPublic --> CadastroDomain
+    CadastroDomain --> CadastroInfra
+
+    MatrizPublic --> MatrizDomain
+    MatrizDomain --> MatrizInfra
+
+    %% ───────────────── Comunicação entre módulos ─────────────────
+    AluguelPublic -->|Interface Pública| PagamentoPublic
+    AluguelPublic -->|Interface Pública| CadastroPublic
+
+    %% ───────────────── Infraestrutura ─────────────────
+    AluguelInfra --> PostgreSQL
+    PagamentoInfra --> PostgreSQL
+    CadastroInfra --> PostgreSQL
+    MatrizInfra --> PostgreSQL
+
+    MatrizInfra --> Redis
+
+    AluguelInfra --> RabbitMQ
+    MatrizInfra --> RabbitMQ
+
+    %% ───────────────── Workers ─────────────────
+    RabbitMQ --> WorkerFiscal
+    RabbitMQ --> WorkerNotificacao
+
+    %% ───────────────── Sistemas Externos ─────────────────
+    PagamentoInfra --> Gateway
+
+    WorkerFiscal --> Emissor
+    WorkerFiscal --> PostgreSQL
+
+    WorkerNotificacao --> Email
+    WorkerNotificacao --> WhatsApp
+
+    %% ───────────────── Observabilidade ─────────────────
+    Observabilidade --> CWRents
+    Observabilidade --> RabbitMQ
+    Observabilidade --> Redis
+    Observabilidade --> PostgreSQL
+    Observabilidade --> WorkerFiscal
+    Observabilidade --> WorkerNotificacao
+```
