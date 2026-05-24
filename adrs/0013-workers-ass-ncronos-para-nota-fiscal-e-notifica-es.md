@@ -60,5 +60,3 @@ Os workers devem ser implementados com **idempotência**: em cenários de reentr
 Processamento síncrono dentro do monolito foi descartado pela dependência de APIs externas no fluxo crítico de confirmação de aluguel — uma falha ou lentidão do emissor fiscal bloquearia o pagamento do cliente.
 
 AWS Lambda foi considerado, mas o RabbitMQ self-hosted já está no ecossistema da solução e é mais barato no volume esperado. Lambda adicionaria dependência de um serviço gerenciado adicional sem benefício proporcional para o porte atual.
-
-Dois workers separados para WhatsApp e e-mail foram descartados por overhead desnecessário — um único worker com roteamento interno por routing keys do RabbitMQ atende bem e reduz o número de processos a operar.
